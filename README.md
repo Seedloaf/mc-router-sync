@@ -14,7 +14,7 @@ This is a lightweight sidecar to ensure mc-router is in sync with your list of r
 --sync-interval   | Sync interval in seconds (default: 30)
 ```
 
-#### Auth
+### Auth
 
 If you select `apikey` auth you need to supply the key via the `API_KEY` environment variable. This key will be sent to the Server list API in the following format: `Authorization: Bearer ${API_KEY}`
 
