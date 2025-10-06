@@ -1,0 +1,242 @@
+package mcroutersync
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestNewMcRouterClient(t *testing.T) {
+	client := NewMcRouterClient("http://localhost:8080")
+	if client == nil {
+		t.Fatal("expected client to be non-nil")
+	}
+	if client.host != "http://localhost:8080" {
+		t.Errorf("expected host to be http://localhost:8080, got %s", client.host)
+	}
+	if client.client == nil {
+		t.Error("expected http client to be non-nil")
+	}
+}
+
+func TestGetRoutes(t *testing.T) {
+	tests := []struct {
+		name           string
+		serverResponse []Route
+		serverStatus   int
+		expectError    bool
+	}{
+		{
+			name: "successful get routes",
+			serverResponse: []Route{
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+				{ServerAddress: "server2.example.com", Backend: "backend2:25565"},
+			},
+			serverStatus: http.StatusOK,
+			expectError:  false,
+		},
+		{
+			name:           "empty routes",
+			serverResponse: []Route{},
+			serverStatus:   http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:           "server error",
+			serverResponse: nil,
+			serverStatus:   http.StatusInternalServerError,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("expected GET request, got %s", r.Method)
+				}
+				if r.URL.Path != "/routes" {
+					t.Errorf("expected path /routes, got %s", r.URL.Path)
+				}
+				if r.Header.Get("Accept") != "application/json" {
+					t.Errorf("expected Accept header to be application/json, got %s", r.Header.Get("Accept"))
+				}
+
+				w.WriteHeader(tt.serverStatus)
+				if tt.serverResponse != nil {
+					json.NewEncoder(w).Encode(tt.serverResponse)
+				}
+			}))
+			defer server.Close()
+
+			client := NewMcRouterClient(server.URL)
+			routes, err := client.GetRoutes()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if len(routes) != len(tt.serverResponse) {
+					t.Errorf("expected %d routes, got %d", len(tt.serverResponse), len(routes))
+				}
+				for i, route := range routes {
+					if route.ServerAddress != tt.serverResponse[i].ServerAddress {
+						t.Errorf("expected ServerAddress %s, got %s", tt.serverResponse[i].ServerAddress, route.ServerAddress)
+					}
+					if route.Backend != tt.serverResponse[i].Backend {
+						t.Errorf("expected Backend %s, got %s", tt.serverResponse[i].Backend, route.Backend)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRegisterRoute(t *testing.T) {
+	tests := []struct {
+		name         string
+		route        Route
+		serverStatus int
+		expectError  bool
+	}{
+		{
+			name: "successful registration",
+			route: Route{
+				ServerAddress: "server1.example.com",
+				Backend:       "backend1:25565",
+			},
+			serverStatus: http.StatusOK,
+			expectError:  false,
+		},
+		{
+			name: "successful registration with 201",
+			route: Route{
+				ServerAddress: "server2.example.com",
+				Backend:       "backend2:25565",
+			},
+			serverStatus: http.StatusCreated,
+			expectError:  false,
+		},
+		{
+			name: "server error",
+			route: Route{
+				ServerAddress: "server3.example.com",
+				Backend:       "backend3:25565",
+			},
+			serverStatus: http.StatusInternalServerError,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("expected POST request, got %s", r.Method)
+				}
+				if r.URL.Path != "/routes" {
+					t.Errorf("expected path /routes, got %s", r.URL.Path)
+				}
+				if r.Header.Get("Content-Type") != "application/json" {
+					t.Errorf("expected Content-Type header to be application/json, got %s", r.Header.Get("Content-Type"))
+				}
+
+				var route Route
+				if err := json.NewDecoder(r.Body).Decode(&route); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				if route.ServerAddress != tt.route.ServerAddress {
+					t.Errorf("expected ServerAddress %s, got %s", tt.route.ServerAddress, route.ServerAddress)
+				}
+				if route.Backend != tt.route.Backend {
+					t.Errorf("expected Backend %s, got %s", tt.route.Backend, route.Backend)
+				}
+
+				w.WriteHeader(tt.serverStatus)
+			}))
+			defer server.Close()
+
+			client := NewMcRouterClient(server.URL)
+			err := client.RegisterRoute(tt.route)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteRoute(t *testing.T) {
+	tests := []struct {
+		name          string
+		serverAddress string
+		serverStatus  int
+		expectError   bool
+	}{
+		{
+			name:          "successful deletion",
+			serverAddress: "server1.example.com",
+			serverStatus:  http.StatusOK,
+			expectError:   false,
+		},
+		{
+			name:          "successful deletion with 204",
+			serverAddress: "server2.example.com",
+			serverStatus:  http.StatusNoContent,
+			expectError:   false,
+		},
+		{
+			name:          "server error",
+			serverAddress: "server3.example.com",
+			serverStatus:  http.StatusInternalServerError,
+			expectError:   true,
+		},
+		{
+			name:          "not found error",
+			serverAddress: "nonexistent.example.com",
+			serverStatus:  http.StatusNotFound,
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodDelete {
+					t.Errorf("expected DELETE request, got %s", r.Method)
+				}
+				expectedPath := "/routes/" + tt.serverAddress
+				if r.URL.Path != expectedPath {
+					t.Errorf("expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+
+				w.WriteHeader(tt.serverStatus)
+			}))
+			defer server.Close()
+
+			client := NewMcRouterClient(server.URL)
+			err := client.DeleteRoute(tt.serverAddress)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
