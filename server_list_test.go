@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// Mock Auth implementations for testing
+// mockAuth is a test helper for mocking authentication
 type mockAuth struct {
 	shouldError bool
 	headerKey   string
@@ -43,18 +43,19 @@ func TestNewServerListClient(t *testing.T) {
 	}
 }
 
-func TestFetchServerList(t *testing.T) {
+func TestGetServers(t *testing.T) {
 	tests := []struct {
 		name           string
-		serverResponse Routes
+		serverResponse []Route
 		serverStatus   int
 		auth           Auth
 		expectError    bool
-		validateAuth   func(*testing.T, *http.Request)
+		authHeaderKey  string
+		authHeaderVal  string
 	}{
 		{
 			name: "successful fetch with no auth",
-			serverResponse: Routes{
+			serverResponse: []Route{
 				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
 				{ServerAddress: "server2.example.com", Backend: "backend2:25565"},
 			},
@@ -64,7 +65,7 @@ func TestFetchServerList(t *testing.T) {
 		},
 		{
 			name: "successful fetch with api key auth",
-			serverResponse: Routes{
+			serverResponse: []Route{
 				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
 			},
 			serverStatus: http.StatusOK,
@@ -72,16 +73,13 @@ func TestFetchServerList(t *testing.T) {
 				headerKey:   "X-API-Key",
 				headerValue: "test-api-key",
 			},
-			expectError: false,
-			validateAuth: func(t *testing.T, r *http.Request) {
-				if r.Header.Get("X-API-Key") != "test-api-key" {
-					t.Errorf("expected X-API-Key header to be test-api-key, got %s", r.Header.Get("X-API-Key"))
-				}
-			},
+			expectError:   false,
+			authHeaderKey: "X-API-Key",
+			authHeaderVal: "test-api-key",
 		},
 		{
 			name:           "empty server list",
-			serverResponse: Routes{},
+			serverResponse: []Route{},
 			serverStatus:   http.StatusOK,
 			auth:           &mockAuth{},
 			expectError:    false,
@@ -95,7 +93,7 @@ func TestFetchServerList(t *testing.T) {
 		},
 		{
 			name:           "authentication error",
-			serverResponse: Routes{},
+			serverResponse: []Route{},
 			serverStatus:   http.StatusOK,
 			auth:           &mockAuth{shouldError: true},
 			expectError:    true,
@@ -113,22 +111,25 @@ func TestFetchServerList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet {
-					t.Errorf("expected GET request, got %s", r.Method)
+					t.Errorf("expected method GET, got %s", r.Method)
 				}
 
-				if tt.validateAuth != nil {
-					tt.validateAuth(t, r)
+				// Verify auth header if expected
+				if tt.authHeaderKey != "" {
+					if r.Header.Get(tt.authHeaderKey) != tt.authHeaderVal {
+						t.Errorf("expected auth header %s: %s, got %s", tt.authHeaderKey, tt.authHeaderVal, r.Header.Get(tt.authHeaderKey))
+					}
 				}
 
 				w.WriteHeader(tt.serverStatus)
-				if tt.serverResponse != nil {
+				if tt.serverStatus == http.StatusOK && tt.serverResponse != nil {
 					json.NewEncoder(w).Encode(tt.serverResponse)
 				}
 			}))
 			defer server.Close()
 
 			client := NewServerListClient(server.URL, tt.auth)
-			routes, err := client.FetchServerList()
+			routes, err := client.GetServers()
 
 			if tt.expectError {
 				if err == nil {

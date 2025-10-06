@@ -23,7 +23,7 @@ func NewServerListClient(endpoint string, auth Auth) *ServerListClient {
 	}
 }
 
-func (c *ServerListClient) FetchServerList() (Routes, error) {
+func (c *ServerListClient) GetServers() (Routes, error) {
 	req, err := http.NewRequest(http.MethodGet, c.endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
