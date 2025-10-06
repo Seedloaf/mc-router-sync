@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestLoadConfigFromFlags(t *testing.T) {
@@ -51,8 +52,8 @@ func TestLoadConfigFromFlags(t *testing.T) {
 				if c.AuthType != AuthTypeNone {
 					t.Errorf("expected AuthType to be none, got %s", c.AuthType)
 				}
-				if c.SyncInterval != 30 {
-					t.Errorf("expected SyncInterval to be 30, got %d", c.SyncInterval)
+				if c.SyncInterval != 30*time.Second {
+					t.Errorf("expected SyncInterval to be 30s, got %s", c.SyncInterval)
 				}
 			},
 		},
@@ -85,8 +86,8 @@ func TestLoadConfigFromFlags(t *testing.T) {
 			name: "custom sync interval",
 			args: []string{"cmd", "-mc-router-host=http://localhost:8080", "-server-list-api=http://api.example.com", "-sync-interval=60"},
 			validate: func(t *testing.T, c *ParsedConfig) {
-				if c.SyncInterval != 60 {
-					t.Errorf("expected SyncInterval to be 60, got %d", c.SyncInterval)
+				if c.SyncInterval != 60*time.Second {
+					t.Errorf("expected SyncInterval to be 60s, got %s", c.SyncInterval)
 				}
 			},
 		},
