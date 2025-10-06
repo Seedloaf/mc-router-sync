@@ -2,7 +2,7 @@
 
 This is a lightweight sidecar to ensure mc-router is in sync with your list of running servers.
 
-## Configuration
+### Configuration
 
 **Note:** entries with a "\*" are required
 
@@ -14,16 +14,14 @@ This is a lightweight sidecar to ensure mc-router is in sync with your list of r
 --sync-interval   | Sync interval in seconds (default: 30)
 ```
 
-### Auth
+#### Auth
 
-If you select `apikey` auth you need to supply the key via the `API_KEY` environment variable.
+If you select `apikey` auth you need to supply the key via the `API_KEY` environment variable. This key will be sent to the Server list API in the following format: `Authorization: Bearer ${API_KEY}`
 
-This key will be sent to the Server list API in the following format: `Authorization: Bearer ${API_KEY}`
-
-## Health
+### Health
 
 There is a server which exposes a `/health` endpoint on port 8080.
 
-## Acknowledgements
+### Acknowledgements
 
 Parts of this service were written using AI (Claude Code) - in particular the tests.
