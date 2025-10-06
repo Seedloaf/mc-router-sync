@@ -1,6 +1,6 @@
 module github.com/Seedloaf/mc-router-sync
 
-go 1.24.2
+go 1.24.4
 
 require github.com/go-playground/validator v9.31.0+incompatible
 
