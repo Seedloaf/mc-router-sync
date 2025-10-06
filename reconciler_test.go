@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// Mock implementations for testing
 type mockServerList struct {
 	routes Routes
 	err    error
@@ -181,14 +180,14 @@ func TestReconcilerDiff(t *testing.T) {
 		{
 			name: "complex scenario with multiple differences",
 			serverListRoutes: Routes{
-				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},    // in sync
-				{ServerAddress: "server2.example.com", Backend: "new-backend:25565"}, // needs update
-				{ServerAddress: "server3.example.com", Backend: "backend3:25565"},    // needs to be added
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+				{ServerAddress: "server2.example.com", Backend: "new-backend:25565"},
+				{ServerAddress: "server3.example.com", Backend: "backend3:25565"},
 			},
 			mcRouterRoutes: Routes{
-				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},    // in sync
-				{ServerAddress: "server2.example.com", Backend: "old-backend:25565"}, // needs update
-				{ServerAddress: "server4.example.com", Backend: "backend4:25565"},    // needs to be removed
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+				{ServerAddress: "server2.example.com", Backend: "old-backend:25565"},
+				{ServerAddress: "server4.example.com", Backend: "backend4:25565"},
 			},
 			expectError:       false,
 			expectedDiffCount: 4,
@@ -198,7 +197,6 @@ func TestReconcilerDiff(t *testing.T) {
 					diffMap[diff.ServerAddress] = diff
 				}
 
-				// server1: in sync
 				if diff, ok := diffMap["server1.example.com"]; ok {
 					if !diff.InServerList || !diff.InMcRouter {
 						t.Error("server1 should be in both")
@@ -210,7 +208,6 @@ func TestReconcilerDiff(t *testing.T) {
 					t.Error("server1 should be in diffs")
 				}
 
-				// server2: needs update
 				if diff, ok := diffMap["server2.example.com"]; ok {
 					if !diff.InServerList || !diff.InMcRouter {
 						t.Error("server2 should be in both")
@@ -222,7 +219,6 @@ func TestReconcilerDiff(t *testing.T) {
 					t.Error("server2 should be in diffs")
 				}
 
-				// server3: needs to be added
 				if diff, ok := diffMap["server3.example.com"]; ok {
 					if !diff.InServerList || diff.InMcRouter {
 						t.Error("server3 should only be in server list")
@@ -231,7 +227,6 @@ func TestReconcilerDiff(t *testing.T) {
 					t.Error("server3 should be in diffs")
 				}
 
-				// server4: needs to be removed
 				if diff, ok := diffMap["server4.example.com"]; ok {
 					if diff.InServerList || !diff.InMcRouter {
 						t.Error("server4 should only be in mc router")
@@ -540,14 +535,12 @@ func TestReconcilerActions(t *testing.T) {
 				return
 			}
 
-			// Create a map of expected actions for easier comparison
 			expectedMap := make(map[string]Action)
 			for _, action := range tt.expectedActions {
 				key := string(action.Type) + ":" + action.ServerAddress
 				expectedMap[key] = action
 			}
 
-			// Check each action
 			for _, action := range actions {
 				key := string(action.Type) + ":" + action.ServerAddress
 				expected, found := expectedMap[key]
@@ -700,7 +693,7 @@ func TestReconcilerApply(t *testing.T) {
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
 		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-		len(s) > len(substr)+1 && findSubstr(s, substr)))
+			len(s) > len(substr)+1 && findSubstr(s, substr)))
 }
 
 func findSubstr(s, substr string) bool {

@@ -8,7 +8,6 @@ import (
 	"testing"
 )
 
-// mockAuth is a test helper for mocking authentication
 type mockAuth struct {
 	shouldError bool
 	headerKey   string
@@ -114,7 +113,6 @@ func TestGetServers(t *testing.T) {
 					t.Errorf("expected method GET, got %s", r.Method)
 				}
 
-				// Verify auth header if expected
 				if tt.authHeaderKey != "" {
 					if r.Header.Get(tt.authHeaderKey) != tt.authHeaderVal {
 						t.Errorf("expected auth header %s: %s, got %s", tt.authHeaderKey, tt.authHeaderVal, r.Header.Get(tt.authHeaderKey))

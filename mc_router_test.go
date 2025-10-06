@@ -163,7 +163,6 @@ func TestRegisterRoute(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				// Verify the route was sent correctly
 				if receivedRoute.ServerAddress != tt.route.ServerAddress {
 					t.Errorf("expected ServerAddress %s, got %s", tt.route.ServerAddress, receivedRoute.ServerAddress)
 				}

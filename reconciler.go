@@ -19,10 +19,10 @@ type Reconciler struct {
 
 type ReconcilerDiff struct {
 	ServerAddress  string
-	DesiredBackend string // Backend from server list (desired state)
-	CurrentBackend string // Backend from mc router (current state)
-	InServerList   bool   // Present in server list
-	InMcRouter     bool   // Present in mc router
+	DesiredBackend string
+	CurrentBackend string
+	InServerList   bool
+	InMcRouter     bool
 }
 
 type ActionType string
@@ -35,23 +35,20 @@ const (
 type Action struct {
 	Type          ActionType
 	ServerAddress string
-	Backend       string // Only relevant for Add and Update actions
+	Backend       string
 }
 
 func (r *Reconciler) Diff() ([]ReconcilerDiff, error) {
-	// Fetch desired state from server list
 	serverListRoutes, err := r.ServerListClient.GetServers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch server list: %w", err)
 	}
 
-	// Fetch current state from mc router
 	mcRouterRoutes, err := r.McRouterClient.GetRoutes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch mc router routes: %w", err)
 	}
 
-	// Build maps for easy lookup
 	serverListMap := make(map[string]string)
 	for _, route := range serverListRoutes {
 		serverListMap[route.ServerAddress] = route.Backend
@@ -62,7 +59,6 @@ func (r *Reconciler) Diff() ([]ReconcilerDiff, error) {
 		mcRouterMap[route.ServerAddress] = route.Backend
 	}
 
-	// Find all unique server addresses
 	allAddresses := make(map[string]bool)
 	for addr := range serverListMap {
 		allAddresses[addr] = true
@@ -71,7 +67,6 @@ func (r *Reconciler) Diff() ([]ReconcilerDiff, error) {
 		allAddresses[addr] = true
 	}
 
-	// Build diff
 	var diffs []ReconcilerDiff
 	for addr := range allAddresses {
 		desiredBackend, inServerList := serverListMap[addr]
@@ -93,7 +88,6 @@ func (r *Reconciler) Actions(diffs []ReconcilerDiff) []Action {
 	var actions []Action
 
 	for _, diff := range diffs {
-		// Add: route only in server list OR in both but backends differ (update via add)
 		if (diff.InServerList && !diff.InMcRouter) || (diff.InServerList && diff.InMcRouter && diff.DesiredBackend != diff.CurrentBackend) {
 			actions = append(actions, Action{
 				Type:          ActionAdd,
@@ -101,13 +95,11 @@ func (r *Reconciler) Actions(diffs []ReconcilerDiff) []Action {
 				Backend:       diff.DesiredBackend,
 			})
 		} else if !diff.InServerList && diff.InMcRouter {
-			// Delete: route only in mc router
 			actions = append(actions, Action{
 				Type:          ActionDelete,
 				ServerAddress: diff.ServerAddress,
 			})
 		}
-		// No action: in both and backends match (skip)
 	}
 
 	return actions

@@ -7,7 +7,6 @@ import (
 )
 
 func TestLoadConfigFromFlags(t *testing.T) {
-	// Save original args and environment
 	oldArgs := os.Args
 	oldEnv := os.Getenv("API_KEY")
 	defer func() {
@@ -95,23 +94,19 @@ func TestLoadConfigFromFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset flags for each test
+
 			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
-			// Set environment
 			if tt.envAPIKey != "" {
 				os.Setenv("API_KEY", tt.envAPIKey)
 			} else {
 				os.Unsetenv("API_KEY")
 			}
 
-			// Set args
 			os.Args = tt.args
 
-			// Run function
 			config, err := LoadConfigFromFlags()
 
-			// Check error
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error but got none")
