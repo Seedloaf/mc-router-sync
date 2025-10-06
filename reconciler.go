@@ -1,6 +1,11 @@
 package mcroutersync
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+)
 
 type ServerList interface {
 	GetServers() (Routes, error)
@@ -15,6 +20,7 @@ type McRouter interface {
 type Reconciler struct {
 	ServerListClient ServerList
 	McRouterClient   McRouter
+	Interval         time.Duration
 }
 
 type ReconcilerDiff struct {
@@ -38,15 +44,53 @@ type Action struct {
 	Backend       string
 }
 
+func (r *Reconciler) Start(ctx context.Context) {
+	ticker := time.NewTicker(r.Interval)
+	defer ticker.Stop()
+
+	if err := r.Reconcile(); err != nil {
+		slog.Error("reconciliation error", "err", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("reconciler stopped")
+			return
+		case <-ticker.C:
+			if err := r.Reconcile(); err != nil {
+				slog.Error("reconciliation error", "err", err)
+			}
+		}
+	}
+}
+
+func (r *Reconciler) Reconcile() error {
+	diffs, err := r.Diff()
+	if err != nil {
+		return fmt.Errorf("failed to diff: %w", err)
+	}
+	slog.Debug("Reconciling diffs", "diffs", diffs)
+
+	actions := r.Actions(diffs)
+	slog.Debug("Applying Actions", "actions", actions)
+	err = r.Apply(actions)
+	if err != nil {
+		return fmt.Errorf("failed to apply actions: %w", err)
+	}
+
+	return nil
+}
+
 func (r *Reconciler) Diff() ([]ReconcilerDiff, error) {
 	serverListRoutes, err := r.ServerListClient.GetServers()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch server list: %w", err)
+		return nil, fmt.Errorf("failed to get servers: %w", err)
 	}
 
 	mcRouterRoutes, err := r.McRouterClient.GetRoutes()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch mc router routes: %w", err)
+		return nil, fmt.Errorf("failed to get routes: %w", err)
 	}
 
 	serverListMap := make(map[string]string)
@@ -125,9 +169,10 @@ func (r *Reconciler) Apply(actions []Action) error {
 	return nil
 }
 
-func NewReconciler(sl ServerList, mr McRouter) *Reconciler {
+func NewReconciler(sl ServerList, mr McRouter, interval time.Duration) *Reconciler {
 	return &Reconciler{
 		ServerListClient: sl,
 		McRouterClient:   mr,
+		Interval:         interval,
 	}
 }

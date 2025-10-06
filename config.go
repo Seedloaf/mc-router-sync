@@ -4,7 +4,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
+	"time"
 
 	"github.com/go-playground/validator"
 )
@@ -18,7 +20,8 @@ type Config struct {
 	ServerListAPI string `validate:"required"`
 	AuthType      string // "apikey", "none"
 	AuthToken     string // Bearer token or API key value
-	SyncInterval  int    // Sync interval in seconds
+	LogLevel      string
+	SyncInterval  int // Sync interval in seconds
 }
 
 type ParsedConfig struct {
@@ -26,7 +29,8 @@ type ParsedConfig struct {
 	ServerListAPI string
 	AuthType      AuthType
 	AuthToken     string
-	SyncInterval  int
+	LogLevel      slog.Level
+	SyncInterval  time.Duration
 }
 
 func LoadConfigFromFlags() (*ParsedConfig, error) {
@@ -37,6 +41,7 @@ func LoadConfigFromFlags() (*ParsedConfig, error) {
 	flag.StringVar(&config.McRouterHost, "mc-router-host", "", "* McRouter API host (e.g. http://localhost:8000)")
 	flag.StringVar(&config.ServerListAPI, "server-list-api", "", "* Server list API endpoint (e.g. http://localhost:3000/api/servers)")
 	flag.StringVar(&config.AuthType, "auth-type", "none", "Authentication type for the server list API: apikey, none")
+	flag.StringVar(&config.LogLevel, "log-level", "info", "The lowest level log you would like (e.g. debug)")
 	flag.IntVar(&config.SyncInterval, "sync-interval", 30, "Sync interval in seconds")
 
 	flag.Parse()
@@ -69,8 +74,24 @@ func LoadConfigFromFlags() (*ParsedConfig, error) {
 		ServerListAPI: config.ServerListAPI,
 		AuthType:      authType,
 		AuthToken:     config.AuthToken,
-		SyncInterval:  config.SyncInterval,
+		LogLevel:      resolveLogLevel(config.LogLevel),
+		SyncInterval:  time.Duration(config.SyncInterval) * time.Second,
 	}, nil
+}
+
+func resolveLogLevel(l string) slog.Level {
+	switch l {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 func resolveApiKeySecrets() string {

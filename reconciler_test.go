@@ -1,9 +1,11 @@
 package mcroutersync
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 )
 
 type mockServerList struct {
@@ -16,13 +18,15 @@ func (m *mockServerList) GetServers() (Routes, error) {
 }
 
 type mockMcRouter struct {
-	routes      Routes
-	err         error
-	deleteErr   error
-	registerErr error
+	routes             Routes
+	err                error
+	deleteErr          error
+	registerErr        error
+	getRoutesCallCount int
 }
 
 func (m *mockMcRouter) GetRoutes() (Routes, error) {
+	m.getRoutesCallCount++
 	return m.routes, m.err
 }
 
@@ -38,7 +42,7 @@ func TestNewReconciler(t *testing.T) {
 	sl := &mockServerList{}
 	mr := &mockMcRouter{}
 
-	reconciler := NewReconciler(sl, mr)
+	reconciler := NewReconciler(sl, mr, 30*time.Second)
 
 	if reconciler == nil {
 		t.Fatal("expected reconciler to be non-nil")
@@ -48,6 +52,9 @@ func TestNewReconciler(t *testing.T) {
 	}
 	if reconciler.McRouterClient == nil {
 		t.Error("expected McRouterClient to be non-nil")
+	}
+	if reconciler.Interval != 30*time.Second {
+		t.Errorf("expected interval to be 30s, got %v", reconciler.Interval)
 	}
 }
 
@@ -270,7 +277,7 @@ func TestReconcilerDiff(t *testing.T) {
 				err:    tt.mcRouterError,
 			}
 
-			reconciler := NewReconciler(sl, mr)
+			reconciler := NewReconciler(sl, mr, 30*time.Second)
 			diffs, err := reconciler.Diff()
 
 			if tt.expectError {
@@ -670,7 +677,7 @@ func TestReconcilerApply(t *testing.T) {
 			}
 			sl := &mockServerList{}
 
-			reconciler := NewReconciler(sl, mr)
+			reconciler := NewReconciler(sl, mr, 30*time.Second)
 			err := reconciler.Apply(tt.actions)
 
 			if tt.expectError {
@@ -703,4 +710,165 @@ func findSubstr(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestReconcilerReconcile(t *testing.T) {
+	tests := []struct {
+		name             string
+		serverListRoutes Routes
+		mcRouterRoutes   Routes
+		serverListErr    error
+		mcRouterErr      error
+		registerErr      error
+		deleteErr        error
+		expectError      bool
+	}{
+		{
+			name: "successful reconciliation - add route",
+			serverListRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+			},
+			mcRouterRoutes: Routes{},
+			expectError:    false,
+		},
+		{
+			name:             "successful reconciliation - delete route",
+			serverListRoutes: Routes{},
+			mcRouterRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+			},
+			expectError: false,
+		},
+		{
+			name: "successful reconciliation - update route",
+			serverListRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "new-backend:25565"},
+			},
+			mcRouterRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "old-backend:25565"},
+			},
+			expectError: false,
+		},
+		{
+			name: "successful reconciliation - no changes needed",
+			serverListRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+			},
+			mcRouterRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+			},
+			expectError: false,
+		},
+		{
+			name:             "diff error - server list fetch fails",
+			serverListRoutes: Routes{},
+			serverListErr:    fmt.Errorf("failed to fetch"),
+			expectError:      true,
+		},
+		{
+			name:             "diff error - mc router fetch fails",
+			serverListRoutes: Routes{},
+			mcRouterErr:      fmt.Errorf("failed to fetch"),
+			expectError:      true,
+		},
+		{
+			name: "apply error - register fails",
+			serverListRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+			},
+			mcRouterRoutes: Routes{},
+			registerErr:    fmt.Errorf("failed to register"),
+			expectError:    true,
+		},
+		{
+			name:             "apply error - delete fails",
+			serverListRoutes: Routes{},
+			mcRouterRoutes: Routes{
+				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
+			},
+			deleteErr:   fmt.Errorf("failed to delete"),
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sl := &mockServerList{
+				routes: tt.serverListRoutes,
+				err:    tt.serverListErr,
+			}
+			mr := &mockMcRouter{
+				routes:      tt.mcRouterRoutes,
+				err:         tt.mcRouterErr,
+				registerErr: tt.registerErr,
+				deleteErr:   tt.deleteErr,
+			}
+
+			reconciler := NewReconciler(sl, mr, 30*time.Second)
+			err := reconciler.Reconcile()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestReconcilerStart(t *testing.T) {
+	t.Run("stops on context cancellation", func(t *testing.T) {
+		sl := &mockServerList{
+			routes: Routes{},
+		}
+		mr := &mockMcRouter{
+			routes: Routes{},
+		}
+
+		reconciler := NewReconciler(sl, mr, 100*time.Millisecond)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		done := make(chan struct{})
+		go func() {
+			reconciler.Start(ctx)
+			close(done)
+		}()
+
+		time.Sleep(250 * time.Millisecond)
+
+		cancel()
+
+		select {
+		case <-done:
+
+		case <-time.After(1 * time.Second):
+			t.Fatal("Start did not stop after context cancellation")
+		}
+	})
+
+	t.Run("continues on reconciliation error", func(t *testing.T) {
+		sl := &mockServerList{
+			routes: Routes{},
+		}
+		mr := &mockMcRouter{
+			routes: Routes{},
+			err:    fmt.Errorf("simulated error"),
+		}
+
+		reconciler := NewReconciler(sl, mr, 50*time.Millisecond)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+		defer cancel()
+
+		reconciler.Start(ctx)
+
+		if mr.getRoutesCallCount < 2 {
+			t.Errorf("expected at least 2 reconciliation attempts, got %d", mr.getRoutesCallCount)
+		}
+	})
 }
