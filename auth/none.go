@@ -6,7 +6,7 @@ import (
 
 type NoneAuth struct{}
 
-func (ta NoneAuth) AuthenticateRequest(req *http.Request) error {
+func (na NoneAuth) AuthenticateRequest(req *http.Request) error {
 	return nil
 }
 
