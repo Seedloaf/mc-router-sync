@@ -1,6 +1,6 @@
 ## MC Router Sync
 
-This is a lightweight sidecar to ensure mc-router is in sync with your list of running servers.
+This is a lightweight sidecar to ensure [mc-router](https://github.com/itzg/mc-router) is in sync with your list of running servers.
 
 ### Configuration
 
