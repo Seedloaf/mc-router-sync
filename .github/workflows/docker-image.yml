@@ -33,6 +33,6 @@ jobs:
       - name: Build and push Docker image
         run: |
           TAG=$(date +%s)
-          docker build . --file Dockerfile --tag seedloaf/mc-router-sync:latest --tag seedloaf/mc-router-sync:$TAG
-          docker push seedloaf/mc-router-sync:latest
-          docker push seedloaf/mc-router-sync:$TAG
+          docker build . --file Dockerfile --tag seedloaf/mc-router-discovery:latest --tag seedloaf/mc-router-discovery:$TAG
+          docker push seedloaf/mc-router-discovery:latest
+          docker push seedloaf/mc-router-discovery:$TAG

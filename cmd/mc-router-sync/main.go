@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	mcroutersync "github.com/Seedloaf/mc-router-sync"
-	"github.com/Seedloaf/mc-router-sync/auth"
+	mcroutersync "github.com/Seedloaf/mc-router-discovery"
+	"github.com/Seedloaf/mc-router-discovery/auth"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/Seedloaf/mc-router-sync
+module github.com/Seedloaf/mc-router-discovery
 
 go 1.24.4
 
