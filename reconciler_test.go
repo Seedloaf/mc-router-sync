@@ -1,4 +1,4 @@
-package mcroutersync
+package mcrouterdiscovery
 
 import (
 	"context"
