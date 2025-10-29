@@ -23,22 +23,24 @@ func TestNewMcRouterClient(t *testing.T) {
 func TestGetRoutes(t *testing.T) {
 	tests := []struct {
 		name           string
-		serverResponse []Route
+		serverResponse *GetResponse
 		serverStatus   int
 		expectError    bool
 	}{
 		{
 			name: "successful get routes",
-			serverResponse: []Route{
-				{ServerAddress: "server1.example.com", Backend: "backend1:25565"},
-				{ServerAddress: "server2.example.com", Backend: "backend2:25565"},
+			serverResponse: &GetResponse{
+				Mappings: map[string]string{
+					"server1.example.com": "backend1:25565",
+					"server2.example.com": "backend2:25565",
+				},
 			},
 			serverStatus: http.StatusOK,
 			expectError:  false,
 		},
 		{
 			name:           "empty routes",
-			serverResponse: []Route{},
+			serverResponse: &GetResponse{},
 			serverStatus:   http.StatusOK,
 			expectError:    false,
 		},
@@ -78,15 +80,16 @@ func TestGetRoutes(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if len(routes) != len(tt.serverResponse) {
-					t.Errorf("expected %d routes, got %d", len(tt.serverResponse), len(routes))
+				if len(routes) != len(tt.serverResponse.Mappings) {
+					t.Errorf("expected %d routes, got %d", len(tt.serverResponse.Mappings), len(routes))
 				}
-				for i, route := range routes {
-					if route.ServerAddress != tt.serverResponse[i].ServerAddress {
-						t.Errorf("expected ServerAddress %s, got %s", tt.serverResponse[i].ServerAddress, route.ServerAddress)
+				for _, route := range routes {
+					expectedBackend, exists := tt.serverResponse.Mappings[route.ServerAddress]
+					if !exists {
+						t.Errorf("unexpected route with ServerAddress %s", route.ServerAddress)
 					}
-					if route.Backend != tt.serverResponse[i].Backend {
-						t.Errorf("expected Backend %s, got %s", tt.serverResponse[i].Backend, route.Backend)
+					if route.Backend != expectedBackend {
+						t.Errorf("expected Backend %s for ServerAddress %s, got %s", expectedBackend, route.ServerAddress, route.Backend)
 					}
 				}
 			}
