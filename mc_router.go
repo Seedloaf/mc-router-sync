@@ -13,10 +13,7 @@ type McRouterClient struct {
 	client *http.Client
 }
 
-type GetResponse struct {
-	DefaultServer string            `json:"default-server"`
-	Mappings      map[string]string `json:"mappings"`
-}
+type GetResponse map[string]string
 
 func (r *GetResponse) Parse(reader io.Reader) error {
 	return json.NewDecoder(reader).Decode(r)
@@ -54,7 +51,7 @@ func (c *McRouterClient) GetRoutes() (Routes, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return ParseMappings(getResp.Mappings), nil
+	return ParseMappings(getResp), nil
 }
 
 func ParseMappings(mappings map[string]string) Routes {

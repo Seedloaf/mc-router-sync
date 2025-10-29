@@ -30,10 +30,8 @@ func TestGetRoutes(t *testing.T) {
 		{
 			name: "successful get routes",
 			serverResponse: &GetResponse{
-				Mappings: map[string]string{
-					"server1.example.com": "backend1:25565",
-					"server2.example.com": "backend2:25565",
-				},
+				"server1.example.com": "backend1:25565",
+				"server2.example.com": "backend2:25565",
 			},
 			serverStatus: http.StatusOK,
 			expectError:  false,
@@ -80,11 +78,11 @@ func TestGetRoutes(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if len(routes) != len(tt.serverResponse.Mappings) {
-					t.Errorf("expected %d routes, got %d", len(tt.serverResponse.Mappings), len(routes))
+				if len(routes) != len(*tt.serverResponse) {
+					t.Errorf("expected %d routes, got %d", len(*tt.serverResponse), len(routes))
 				}
 				for _, route := range routes {
-					expectedBackend, exists := tt.serverResponse.Mappings[route.ServerAddress]
+					expectedBackend, exists := (*tt.serverResponse)[route.ServerAddress]
 					if !exists {
 						t.Errorf("unexpected route with ServerAddress %s", route.ServerAddress)
 					}
