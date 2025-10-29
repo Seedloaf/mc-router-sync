@@ -1,6 +1,7 @@
 package mcrouterdiscovery
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,15 @@ import (
 type McRouterClient struct {
 	host   string
 	client *http.Client
+}
+
+type GetResponse struct {
+	DefaultServer string            `json:"default-server"`
+	Mappings      map[string]string `json:"mappings"`
+}
+
+func (r *GetResponse) Parse(reader io.Reader) error {
+	return json.NewDecoder(reader).Decode(r)
 }
 
 func NewMcRouterClient(host string) *McRouterClient {
@@ -39,12 +49,25 @@ func (c *McRouterClient) GetRoutes() (Routes, error) {
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
-	var routes Routes
-	if err := routes.Parse(resp.Body); err != nil {
+	var getResp GetResponse
+	if err := getResp.Parse(resp.Body); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return routes, nil
+	return ParseMappings(getResp.Mappings), nil
+}
+
+func ParseMappings(mappings map[string]string) Routes {
+	var out Routes
+
+	for k, v := range mappings {
+		out = append(out, Route{
+			ServerAddress: k,
+			Backend:       v,
+		})
+	}
+
+	return out
 }
 
 func (c *McRouterClient) RegisterRoute(route Route) error {
