@@ -11,6 +11,11 @@ import (
 type McRouterClient struct {
 	host   string
 	client *http.Client
+	auth   Auth
+}
+
+type McRouterClientOpts struct {
+	Auth Auth
 }
 
 type GetResponse map[string]string
@@ -19,9 +24,10 @@ func (r *GetResponse) Parse(reader io.Reader) error {
 	return json.NewDecoder(reader).Decode(r)
 }
 
-func NewMcRouterClient(host string) *McRouterClient {
+func NewMcRouterClient(host string, opts McRouterClientOpts) *McRouterClient {
 	return &McRouterClient{
 		host: host,
+		auth: opts.Auth,
 		client: &http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -34,6 +40,9 @@ func (c *McRouterClient) GetRoutes() (Routes, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
+	if c.auth != nil {
+		c.auth.AuthenticateRequest(req)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -78,6 +87,9 @@ func (c *McRouterClient) RegisterRoute(route Route) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.auth != nil {
+		c.auth.AuthenticateRequest(req)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -97,6 +109,9 @@ func (c *McRouterClient) DeleteRoute(serverAddress string) error {
 	req, err := http.NewRequest(http.MethodDelete, c.host+"/routes/"+serverAddress, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
+	}
+	if c.auth != nil {
+		c.auth.AuthenticateRequest(req)
 	}
 
 	resp, err := c.client.Do(req)

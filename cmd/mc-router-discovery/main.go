@@ -29,7 +29,7 @@ func main() {
 	}
 
 	sl := mcrouterdiscovery.NewServerListClient(cfg.ServerListAPI, authimpl)
-	mr := mcrouterdiscovery.NewMcRouterClient(cfg.McRouterHost)
+	mr := mcrouterdiscovery.NewMcRouterClient(cfg.McRouterHost, mcrouterdiscovery.McRouterClientOpts{Auth: authimpl})
 	reconciler := mcrouterdiscovery.NewReconciler(sl, mr, cfg.SyncInterval)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

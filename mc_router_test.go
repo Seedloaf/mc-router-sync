@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewMcRouterClient(t *testing.T) {
-	client := NewMcRouterClient("http://localhost:8080")
+	client := NewMcRouterClient("http://localhost:8080", McRouterClientOpts{})
 	if client == nil {
 		t.Fatal("expected client to be non-nil")
 	}
@@ -67,7 +67,7 @@ func TestGetRoutes(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMcRouterClient(server.URL)
+			client := NewMcRouterClient(server.URL, McRouterClientOpts{})
 			routes, err := client.GetRoutes()
 
 			if tt.expectError {
@@ -153,7 +153,7 @@ func TestRegisterRoute(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMcRouterClient(server.URL)
+			client := NewMcRouterClient(server.URL, McRouterClientOpts{})
 			err := client.RegisterRoute(tt.route)
 
 			if tt.expectError {
@@ -217,7 +217,7 @@ func TestDeleteRoute(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMcRouterClient(server.URL)
+			client := NewMcRouterClient(server.URL, McRouterClientOpts{})
 			err := client.DeleteRoute(tt.serverAddress)
 
 			if tt.expectError {
