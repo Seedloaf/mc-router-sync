@@ -1,6 +1,16 @@
 ## MC Router Sync
 
-This is a lightweight sidecar to ensure [mc-router](https://github.com/itzg/mc-router) is in sync with your list of running servers.
+A lightweight service that automatically synchronizes your Minecraft server list with [mc-router](https://github.com/itzg/mc-router).
+
+MC Router Sync monitors your server inventory and keeps mc-router's routing table up to date. You maintain your server list in whatever format works best for your infrastructure: a file, database, key-value store, or custom API and MC Router Sync handles the synchronization automatically.
+
+## Deployment Options
+
+MC Router Sync can be deployed in two ways:
+
+1. **Sidecar container**: Run as a standalone service that fetches server data from an HTTP API endpoint. Your API must return server information in the format specified below.
+   - **Note:** In this configuration you are responsible for providing this HTTP API endpoint.
+1. **Embedded in Go applications**: Import MC Router Sync as a library and provide a custom `ServerList` implementation that retrieves server data from your existing infrastructure.
 
 ### Configuration
 
